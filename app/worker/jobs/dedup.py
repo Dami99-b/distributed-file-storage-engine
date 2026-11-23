@@ -86,7 +86,7 @@ async def run(
     except ValueError as exc:
         raise PermanentJobError(f"file_id is not a UUID: {raw_file_id!r}") from exc
 
-    file = await session.get(File, file_id, with_for_update=True)
+    file = await session.get(File, file_id, with_for_update={"of": File})
     if file is None:
         raise PermanentJobError(f"file {file_id} no longer exists")
 

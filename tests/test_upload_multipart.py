@@ -1,10 +1,10 @@
 """The multipart (at-or-above-threshold) flow.
 
 CI never needs to ship 50 MB of test payload: `upload-intent` only looks at the
-declared size to pick the strategy, so a 60 MB declaration produces a 5 MiB
-chunk plan, of which this test uploads the first two real parts before calling
-`complete-upload`. Completing with a contiguous 1..N prefix of genuinely
-uploaded parts is exactly what S3 requires.
+declared size to pick the strategy, so these tests lower the threshold to one
+chunk and declare two chunks' worth (one full 5 MiB part plus 1 MiB). Both parts
+are genuinely uploaded before `complete-upload`, which is exactly what S3
+requires.
 """
 
 from __future__ import annotations
@@ -23,6 +23,12 @@ pytestmark = pytest.mark.integration
 
 V1 = settings.api_v1_prefix
 TWO_PARTS_TOTAL = settings.multipart_chunk_size_bytes + 1024 * 1024
+
+
+@pytest.fixture(autouse=True)
+def _one_chunk_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make a two-chunk declaration cross the threshold without 50 MB of data."""
+    monkeypatch.setattr(settings, "multipart_threshold_bytes", settings.multipart_chunk_size_bytes)
 
 
 async def test_intent_at_threshold_plans_chunks_of_the_configured_size(

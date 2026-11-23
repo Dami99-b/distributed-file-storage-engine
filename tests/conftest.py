@@ -10,6 +10,7 @@ the schema migrated here instead.
 
 from __future__ import annotations
 
+import threading
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
 
@@ -38,8 +39,25 @@ def _alembic_config() -> Config:
 
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database() -> Iterator[None]:
-    """Idempotent - CI also runs `alembic upgrade head` explicitly."""
-    command.upgrade(_alembic_config(), "head")
+    """Idempotent - CI also runs `alembic upgrade head` explicitly.
+
+    Alembic's env.py calls ``asyncio.run``, which clears the thread's current
+    event loop when it finishes. Running it on a worker thread keeps the
+    session loop that pytest-asyncio installed on the main thread intact.
+    """
+    errors: list[BaseException] = []
+
+    def _upgrade() -> None:
+        try:
+            command.upgrade(_alembic_config(), "head")
+        except BaseException as exc:  # re-raised on the main thread
+            errors.append(exc)
+
+    worker = threading.Thread(target=_upgrade)
+    worker.start()
+    worker.join()
+    if errors:
+        raise errors[0]
     yield
 
 
