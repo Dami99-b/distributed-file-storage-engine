@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -120,7 +121,9 @@ def create_app() -> FastAPI:
                 "error": {
                     "code": "validation_error",
                     "message": "request validation failed",
-                    "details": {"errors": exc.errors()},
+                    "details": {
+                        "errors": jsonable_encoder(exc.errors(), custom_encoder={Exception: str})
+                    },
                 }
             },
         )
